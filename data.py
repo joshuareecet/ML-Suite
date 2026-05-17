@@ -1,14 +1,25 @@
 import torch
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, Subset
 from torchvision import datasets
 from torchvision.transforms import v2
 from torchvision.io import decode_image
-import matplotlib.pyplot as plt
-from pathlib import Path
 import pandas as pd
 import os
 from utils.setup import data_dir
+from sklearn.model_selection import train_test_split
+
+RANDOM_SEED = 42
+default_test_transform = [
+		v2.ToImage(),
+		v2.ToDtype(torch.float32,scale=True),
+		v2.Normalize(mean=[0.2860], std=[0.3530])
+	]
+default_train_transform = [
+		*default_test_transform,
+		v2.RandomRotation(6),
+		v2.RandomHorizontalFlip(0.15),
+		v2.RandomCrop(28,padding=4)
+	]
 
 # Custom Dataset Classes ---------------------------------------------------------------------------------------------------------
 
@@ -31,56 +42,80 @@ class CustomImageDataset(Dataset):
 		if self.target_transform:
 			label = self.target_transform(label)
 		return image, label
+	
+class TransformedSubset(Dataset):
+	def __init__(
+			self, 
+			subset: Subset,
+			transform: v2.Transform = None,
+			target_transform: v2.Transform = None
+	):
+		self.data = subset
+		self.transform = transform
+		self.target_transform = target_transform
+
+	def __len__(self) -> int:
+		return len(self.data)
+	
+	def __getitem__(self, idx):
+		img, label = self.data[idx]
+		if self.transform:
+			img = self.transform(img)
+		if self.target_transform:
+			label = self.target_transform(label)
+		return img,label
+	
+	def add_transform(self, trans: v2.Transform):
+		self.transform = trans
+	def add_target_transform(self, trans: v2.Transform):
+		self.target_transform = trans
+
+# Custom Dataset Splitters ---------------------------------------------------------------------------------------------------------
+def get_labels(dataset: Dataset) -> torch.Tensor:
+	if hasattr(dataset, "targets"):
+		return dataset.targets
+	elif hasattr(dataset, "labels"):
+		return dataset.labels
+	else:
+		return torch.tensor([dataset[i][1] for i in range(len(dataset))])
+
+def train_val_split(
+		dataset: Dataset, 
+		stratified=False, 
+		val_size = 0.2,
+		train_transform = v2.Compose(default_train_transform),
+		val_transform = v2.Compose(default_test_transform),
+) -> tuple[TransformedSubset, TransformedSubset]:
+	labels = get_labels(dataset) if stratified else None
+	
+	train_idx, val_idx = train_test_split(
+		range(len(dataset)),
+		test_size=val_size,
+		stratify=labels,
+		random_state=RANDOM_SEED
+	)
+
+	train_subset = TransformedSubset(Subset(dataset, train_idx), transform=train_transform)
+	val_subset = TransformedSubset(Subset(dataset, val_idx), transform=val_transform)
+	
+	return train_subset, val_subset
 
 # Loading data ---------------------------------------------------------------------------------------------------------
 
-FMNIST_training_data = datasets.FashionMNIST(
-	root = data_dir,
-	train=True,
-	download=True,
-	transform=v2.Compose([v2.ToImage(),v2.ToDtype(torch.float32,scale=True)])
-)
-FMNIST_test_data = datasets.FashionMNIST(
-	root = data_dir,
-	train=False,
-	download=True,
-	transform=v2.Compose([v2.ToImage(),v2.ToDtype(torch.float32,scale=True)])
-)
+def get_FMNIST_data() -> tuple[TransformedSubset,TransformedSubset,Dataset]:
+	FMNIST_data = datasets.FashionMNIST(
+		root = data_dir,
+		train=True,
+		download=True,
+	)
 
-FMNIST_labels_map = {
-	0: "T-Shirt",
-	1: "Trouser",
-	2: "Pullover",
-	3: "Dress",
-	4: "Coat",
-	5: "Sandal",
-	6: "Shirt",
-	7: "Sneaker",
-	8: "Bag",
-	9: "Ankle Boot",
-}
+	FMNIST_training_data, FMNIST_val_data = train_val_split(FMNIST_data, stratified=True)
 
-if __name__ == "__main__":
-	figure = plt.figure(figsize=(8, 8))
-	cols, rows = 4, 4
-	for i in range(1, cols * rows + 1):
-		sample_idx = torch.randint(len(FMNIST_training_data), size=(1,)).item()
-		img, label = FMNIST_training_data[sample_idx]
-		figure.add_subplot(rows, cols, i)
-		plt.title(FMNIST_labels_map[label])
-		plt.axis("off")
-		plt.imshow(img.squeeze(), cmap="gray")
-	plt.show()
+	FMNIST_test_data = datasets.FashionMNIST(
+		root = data_dir,
+		train=False,
+		download=True,
+		transform=v2.Compose(default_test_transform)
+	)
 
-	train_dataloader = DataLoader(FMNIST_training_data, batch_size=64, shuffle=True)
-	test_dataloader = DataLoader(FMNIST_test_data, batch_size=64,shuffle=True)
-
-	# Display image and label
-	train_features, train_labels = next(iter(train_dataloader))
-	print(f"Feature batch shape: {train_features.size()}")
-	print(f"Labels batch shape: {train_labels.size()}")
-	img = train_features[0].squeeze()
-	label = train_labels[0]
-	plt.imshow(img, cmap="gray")
-	plt.show()
-	print(f"label: {label}")
+	return FMNIST_training_data, FMNIST_val_data, FMNIST_test_data
