@@ -24,6 +24,8 @@ default_train_transform = [
 # Custom Dataset Classes ---------------------------------------------------------------------------------------------------------
 
 class CustomImageDataset(Dataset):
+	"""Image dataset backed by a CSV annotations file and an image directory."""
+
 	def __init__(self, annotations_file, img_dir, transform = None, target_transform = None):
 		self.img_dir = img_dir
 		self.img_labels = pd.read_csv(annotations_file)
@@ -44,6 +46,8 @@ class CustomImageDataset(Dataset):
 		return image, label
 	
 class TransformedSubset(Dataset):
+	"""Wraps a Subset and applies separate transforms to images and labels."""
+
 	def __init__(
 			self, 
 			subset: Subset,
@@ -72,6 +76,7 @@ class TransformedSubset(Dataset):
 
 # Custom Dataset Splitters ---------------------------------------------------------------------------------------------------------
 def get_labels(dataset: Dataset) -> torch.Tensor:
+	"""Extract labels from a dataset, falling back to iterating if no targets attribute exists."""
 	if hasattr(dataset, "targets"):
 		return dataset.targets
 	elif hasattr(dataset, "labels"):
@@ -80,12 +85,13 @@ def get_labels(dataset: Dataset) -> torch.Tensor:
 		return torch.tensor([dataset[i][1] for i in range(len(dataset))])
 
 def train_val_split(
-		dataset: Dataset, 
+		dataset: Dataset,
 		stratified=False, 
 		val_size = 0.2,
 		train_transform = v2.Compose(default_train_transform),
 		val_transform = v2.Compose(default_test_transform),
 ) -> tuple[TransformedSubset, TransformedSubset]:
+	"""Split a dataset into train/val TransformedSubsets, optionally stratified by class."""
 	labels = get_labels(dataset) if stratified else None
 	
 	train_idx, val_idx = train_test_split(
@@ -103,6 +109,7 @@ def train_val_split(
 # Loading data ---------------------------------------------------------------------------------------------------------
 
 def get_FMNIST_data() -> tuple[TransformedSubset,TransformedSubset,Dataset]:
+	"""Load FashionMNIST and return stratified (train, val, test) splits."""
 	FMNIST_data = datasets.FashionMNIST(
 		root = data_dir,
 		train=True,
