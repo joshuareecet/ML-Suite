@@ -261,14 +261,19 @@ class Res50(nn.Module):
 		stage5_in = 1024
 		stage5_out = 2048
 
-		self.stage1 = nn.Conv2d(stage1_in,out_channels=stage2_in,kernel_size=7,stride=2,padding=3)
+		self.stage1 = nn.Sequential(
+			#nn.Conv2d(stage1_in,out_channels=stage2_in,kernel_size=7,stride=2,padding=3),
+			nn.Conv2d(stage1_in,out_channels=stage2_in,kernel_size=3,stride=1,padding=1),
+			nn.BatchNorm2d(stage2_in),
+			nn.ReLU()
+		)
 		self.stage2 = nn.Sequential(
-			nn.MaxPool2d(3,2,1),
+			#nn.MaxPool2d(3,2,1),
 			self._make_stage(stage2_in,stage3_in,1,3)
 		)
-		self.stage3 = self._make_stage(stage3_in,stage4_in,1,3)
-		self.stage4 = self._make_stage(stage4_in,stage5_in,1,3)
-		self.stage5 = self._make_stage(stage5_in,stage5_out,1,3)
+		self.stage3 = self._make_stage(stage3_in,stage4_in,2,4)
+		self.stage4 = self._make_stage(stage4_in,stage5_in,2,6)
+		self.stage5 = self._make_stage(stage5_in,stage5_out,2,3)
 		self.stage6 = nn.Sequential(
 			nn.AdaptiveAvgPool2d(1),
 			nn.Flatten(),
@@ -290,7 +295,6 @@ class Res50(nn.Module):
 		x = self.stage4(x)
 		x = self.stage5(x)
 		x = self.stage6(x)
-		x = nn.functional.sigmoid(x)
 		return x
 	
 	def model_name(self):
