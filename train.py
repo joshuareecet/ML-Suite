@@ -2,7 +2,9 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from data import get_FMNIST_data
+from data import get_dataset
+from torchvision import datasets
+
 from neuralnetwork import SimpleMLP, SimpleCNN, StridedCNN, MiniResNet, Res50
 from utils.setup import device, models_dir
 import time
@@ -10,9 +12,12 @@ import time
 LEARNING_RATE = 1e-3
 BATCH_SIZE = 64
 EPOCHS = 50
-DATASET_NAME = f"FMNIST"
-DEBUG = True
 
+MODEL = Res50
+DATASET = datasets.FashionMNIST
+DATASET_NAME = f"FMNIST"
+
+DEBUG = False
 if DEBUG:
 	torch.autograd.set_detect_anomaly(True)
 
@@ -103,14 +108,14 @@ def model_init(
 if __name__ == "__main__":
 	
 	# Loading Data 
-	FMNIST_training_data, FMNIST_val_data, FMNIST_test_data = get_FMNIST_data()
+	train_data, val_data, test_data = get_dataset(DATASET)
 
-	train_dataloader = DataLoader(FMNIST_training_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True, shuffle=True)
-	val_dataloader = DataLoader(FMNIST_val_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True)
-	test_dataloader = DataLoader(FMNIST_test_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True)
+	train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True, shuffle=True)
+	val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True)
+	test_dataloader = DataLoader(test_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True)
 	
 	# Initialising Model
-	model, loss_fn, optimizer, scheduler = model_init(Res50)
+	model, loss_fn, optimizer, scheduler = model_init(MODEL)
 	save_path = models_dir / f"{DATASET_NAME}{model.model_name()}_best.pt"
 	
 	print(f"Using device: {device}")

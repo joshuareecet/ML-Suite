@@ -109,21 +109,19 @@ def train_val_split(
 
 # Loading data ---------------------------------------------------------------------------------------------------------
 
-def get_FMNIST_data() -> tuple[TransformedSubset,TransformedSubset,Dataset]:
-	"""Load FashionMNIST and return stratified (train, val, test) splits."""
-	FMNIST_data = datasets.FashionMNIST(
+def get_dataset(dataset: datasets.VisionDataset = datasets.FashionMNIST) -> tuple[TransformedSubset,TransformedSubset,Dataset]:
+	data = dataset(
 		root = data_dir,
 		train=True,
-		download=True,
+		download=True
 	)
+	train_data, val_data = train_val_split(data, stratified=True)
 
-	FMNIST_training_data, FMNIST_val_data = train_val_split(FMNIST_data, stratified=True)
-
-	FMNIST_test_data = datasets.FashionMNIST(
+	test_data = dataset(
 		root = data_dir,
 		train=False,
 		download=True,
 		transform=v2.Compose(default_test_transform)
 	)
 
-	return FMNIST_training_data, FMNIST_val_data, FMNIST_test_data
+	return train_data,val_data, test_data
