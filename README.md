@@ -1,70 +1,46 @@
 # ML Foundations
 
-A FashionMNIST image classifier built with PyTorch. Trains and evaluates two architectures — a fully-connected network and a CNN — to classify 28×28 grayscale images into 10 clothing categories.
+PyTorch image classification experiments across progressively deeper architectures and multiple datasets.
 
 ## Setup
 
 ```bash
-python -m venv .env
-source .env/bin/activate
+python -m venv .env && source .env/bin/activate
 pip install -r requirements.txt
-```
-
-## Usage
-
-```bash
 python train.py
 ```
 
-The dataset downloads automatically on first run. The trained model is saved to `models/`.
+Dataset downloads automatically. Normalisation stats are computed once and cached in `data/dataset_config.json`.
 
-To switch between architectures, change the initialiser call in `train.py`:
+## Configuration
 
 ```python
-# Fully-connected network
-model, loss_fn, optimizer, scheduler = neural_net_init()
-
-# CNN (default)
-model, loss_fn, optimizer, scheduler = CNN_init()
+# train.py
+MODEL        = Res50
+DATASET      = datasets.CIFAR10
+DATASET_NAME = "CIFAR10"
 ```
+
+`in_channels`, `num_classes`, and `imgsz` are derived from the dataset automatically.
 
 ## Models
 
-| Name | Architecture | Optimizer |
-|------|-------------|-----------|
-| `NeuralNetwork` | 3-layer MLP (512-512-10) | SGD |
-| `CNN` | 3× Conv2d + BN + MaxPool → FC(256) → 10 | AdamW |
+| Class | Architecture |
+|---|---|
+| `SimpleMLP` | Flatten → 512 → 512 → out |
+| `SimpleCNN` | 2× Conv+BN+ReLU+MaxPool → FC(256) → out |
+| `StridedCNN` | 3× Conv+BN+ReLU (stride-2) → FC(256) → out |
+| `MiniResNet` | 3 residual blocks (32→64→128) → FC(256) → out |
+| `Res50` | 4 bottleneck stages (64→256→512→1024→2048) → AdaptiveAvgPool → out |
 
-The CNN uses batch normalization and dropout (conv: 0.1, FC: 0.2) for regularization.
+## Hyperparameters
 
-## Data Pipeline
-
-`data.py` provides:
-
-- **`CustomImageDataset`** — loads images from a CSV annotations file and image directory
-- **`TransformedSubset`** — wraps a `torch.utils.data.Subset` with separate transforms per split
-- **`train_val_split`** — stratified 80/20 train/validation split using scikit-learn
-
-Training augmentations applied to the train split: random rotation (±6°), random horizontal flip (15%), random crop with padding 4.
-
-## Training
-
-Default hyperparameters in `train.py`:
-
-| Parameter | Value |
-|-----------|-------|
+| | |
+|---|---|
 | Epochs | 50 |
 | Batch size | 64 |
-| Learning rate | 1e-4 |
+| LR | 1e-3 |
 | LR schedule | Linear decay to 0.5× over 30 epochs |
+| Optimizer | AdamW |
 
-## Project Structure
-
-```
-├── train.py           # Training and evaluation loops, model initialisers
-├── neuralnetwork.py   # NeuralNetwork (MLP) and CNN architectures
-├── data.py            # Dataset classes, splitter, and FMNIST loader
-├── models/            # Saved model state dicts
-└── utils/
-    └── setup.py       # Device selection (CUDA / MPS / CPU) and shared paths
-```
+Best checkpoint saved to `models/` on each validation loss improvement.
