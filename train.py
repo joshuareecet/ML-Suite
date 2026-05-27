@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader
 
 from data import get_dataset, get_dataset_info
 from torchvision import datasets
+import torchvision.transforms as T
+from torchvision.transforms import v2
 
 from neuralnetwork import SimpleMLP, SimpleCNN, StridedCNN, MiniResNet, Res50
 from utils.setup import device, models_dir
@@ -20,6 +22,11 @@ DATASET_NAME = f"CIFAR10"
 DEBUG = False
 if DEBUG:
 	torch.autograd.set_detect_anomaly(True)
+
+additional_train_transforms = v2.Compose([
+	v2.RandomVerticalFlip(0.15),
+	v2.ColorJitter()
+])
 
 # Train and test loops ---------------------------------------------------------------------------------------------------------
 def train_loop(
@@ -113,6 +120,8 @@ if __name__ == "__main__":
 	# Loading Data 
 	train_data, val_data, test_data = get_dataset(DATASET)
 	in_channels, num_classes, imgsz = get_dataset_info(train_data)
+
+	train_data.add_transform(additional_train_transforms)
 
 	train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True, shuffle=True)
 	val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True)

@@ -39,7 +39,7 @@ class CustomImageDataset(Dataset):
 	def __init__(self, annotations_file, img_dir, transform = None, target_transform = None):
 		self.img_dir = img_dir
 		self.img_labels = pd.read_csv(annotations_file)
-		self.transform = transform
+		self.transform: v2.Compose = transform
 		self.target_transform = target_transform
 
 	def __len__(self):
@@ -70,6 +70,9 @@ class TransformedSubset(Dataset):
 
 	def __len__(self) -> int:
 		return len(self.data)
+
+	def __getattr__(self, name: str):
+		return getattr(self.data.dataset, name)
 	
 	def __getitem__(self, idx):
 		img, label = self.data[idx]
@@ -79,10 +82,17 @@ class TransformedSubset(Dataset):
 			label = self.target_transform(label)
 		return img,label
 	
-	def add_transform(self, trans: v2.Transform):
-		self.transform = trans
-	def add_target_transform(self, trans: v2.Transform):
-		self.target_transform = trans
+	def add_transform(self, trans: v2.Compose | v2.Transform):
+		if self.transform is None:
+			self.transform = trans
+		else:
+			self.transform.transforms.append(trans)
+		
+	def add_target_transform(self, trans: v2.Compose | v2.Transform):
+		if self.target_transform is None:
+			self.target_transform = trans
+		else:
+			self.target_transform.transforms.append(trans)
 
 # Custom Dataset Splitters ---------------------------------------------------------------------------------------------------------
 def get_labels(dataset: Dataset) -> torch.Tensor:
@@ -162,7 +172,7 @@ def get_normalisation(dataset: type[datasets.VisionDataset]) -> tuple[list[float
 
 	return mean, std, imgsz
 
-def get_dataset(dataset: type[datasets.VisionDataset] = datasets.FashionMNIST) -> tuple[TransformedSubset, TransformedSubset, Dataset]:
+def get_dataset(dataset: type[datasets.VisionDataset] = datasets.FashionMNIST, train_transforms = None, test_transforms = None) -> tuple[TransformedSubset, TransformedSubset, TransformedSubset]:
 	mean, std, imgsz = get_normalisation(dataset)
 
 	data = dataset(root=data_dir, train=True, download=True)
@@ -173,12 +183,8 @@ def get_dataset(dataset: type[datasets.VisionDataset] = datasets.FashionMNIST) -
 		val_transform=build_test_transform(mean, std),
 	)
 
-	test_data = dataset(
-		root=data_dir,
-		train=False,
-		download=True,
-		transform=build_test_transform(mean, std)
-	)
+	test_raw = dataset(root=data_dir, train=False, download=True)
+	test_data = TransformedSubset(Subset(test_raw, range(len(test_raw))), transform=build_test_transform(mean, std))
 
 	return train_data, val_data, test_data
 
