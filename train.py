@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from data import get_dataset, get_dataset_info
+from data import get_dataset, get_dataset_info, get_imgsz
 from torchvision import datasets
 import torchvision.transforms as T
 from torchvision.transforms import v2
@@ -23,9 +23,12 @@ DEBUG = False
 if DEBUG:
 	torch.autograd.set_detect_anomaly(True)
 
+
 additional_train_transforms = v2.Compose([
 	v2.RandomVerticalFlip(0.15),
-	v2.ColorJitter()
+	v2.ColorJitter(),
+	v2.RandomRotation(6),
+	v2.RandomHorizontalFlip(0.15),
 ])
 
 # Train and test loops ---------------------------------------------------------------------------------------------------------
